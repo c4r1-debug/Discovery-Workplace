@@ -1,0 +1,52 @@
+/* UI UX Pro Max: restrained dashboard surfaces and progressive disclosure. */
+.app-shell{--ui-muted:#526760;--ui-border:#b8cac3;--ui-focus:#146b55}
+.app-shell .muted,.app-shell .page-heading p,.app-shell .section-title p,.app-shell .list-heading p,.app-shell .stat small,.app-shell .stat-top,.app-shell .search-foot,.app-shell .panel-foot,.app-shell .worker-card p,.app-shell td small{color:var(--ui-muted)}
+.app-shell .eyebrow{color:var(--ui-muted);letter-spacing:.12em}
+.app-shell .page-heading h1{font-size:clamp(25px,3vw,34px);line-height:1.2}
+.app-shell .button,.app-shell .icon-button,.app-shell .segmented button{min-height:44px}
+.app-shell .icon-button,.app-shell .segmented button{min-width:44px}
+.app-shell button,.app-shell summary{cursor:pointer}
+.app-shell button:disabled{cursor:not-allowed}
+.app-shell :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid var(--ui-focus);outline-offset:3px}
+.app-shell :is(input:not([type=checkbox]),select,textarea){border-color:var(--ui-border)}
+.app-shell .nav-item{min-height:44px}
+.app-shell .nav-label{white-space:nowrap}
+.app-shell .search-panel{background:#f6faf8;box-shadow:none}
+.app-shell .search-foot{font-size:12px;line-height:1.6;gap:16px;flex-wrap:wrap}
+.app-shell .preview-toggle{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px}
+.app-shell .preview-toggle .muted{font-size:12px}
+.app-shell .discovery-next{padding:24px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.app-shell .discovery-next p{color:var(--ui-muted);font-size:14px;line-height:1.6;margin-bottom:0}
+.app-shell .panel-foot{display:flex;flex-wrap:wrap;align-items:center;gap:16px;font-size:12px}
+.app-shell .pagination{display:flex;align-items:center;gap:12px;margin-left:auto}
+.app-shell .pagination span{white-space:nowrap}
+.app-shell th{color:var(--ui-muted);font-size:12px}
+.app-shell .bulk-prospects{background:#f6faf8;border-block:1px solid var(--line)}
+.app-shell .job-folder>summary{min-height:48px}
+.app-shell .activity-panel>summary{display:flex;align-items:center;gap:12px;min-height:48px;list-style:none}
+.app-shell .activity-panel>summary::-webkit-details-marker{display:none}
+.app-shell .activity-panel>summary:before{content:"▸"}
+.app-shell .activity-panel[open]>summary:before{content:"▾"}
+.app-shell .activity-panel>summary h2{margin:0}
+.app-shell .activity-search{align-items:flex-end}
+.app-shell .activity-search .field{min-width:min(240px,100%);margin:0}
+.app-shell .activity-panel>.pagination{margin-top:16px}
+.app-shell .top-right{gap:12px}
+.skip-link{position:fixed;left:16px;top:-100px;z-index:1000;background:white;color:#145c49;padding:12px 20px;border:2px solid currentColor;border-radius:8px}
+.skip-link:focus{top:16px}
+@media(max-width:760px){
+ .app-shell .nav-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .app-shell .nav-item{justify-content:center}
+ .app-shell .search-foot{display:flex}
+ .app-shell .pagination{margin-left:0;flex-wrap:wrap}
+ .app-shell .discovery-next{padding:18px}
+ .app-shell .top-right .avatar{display:none}
+ .app-shell .stat strong{font-size:28px}
+ .app-shell .list-heading .row{justify-content:flex-start}
+ .app-shell .panel-foot span:last-child{display:inline}
+}
+@media(prefers-reduced-motion:reduce){.app-shell *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+dialog.modal,dialog.drawer{border:0;color:var(--ink);box-sizing:border-box}
+dialog.modal{margin:auto;max-width:calc(100vw - 32px)}
+dialog.drawer{position:fixed;left:auto;right:0;top:0;margin:0;height:100vh;max-height:100vh;max-width:100vw}
+dialog::backdrop{background:#142a2150;backdrop-filter:blur(2px)}

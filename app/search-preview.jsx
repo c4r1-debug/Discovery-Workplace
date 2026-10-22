@@ -1,0 +1,11 @@
+'use client';
+import {useEffect,useState} from 'react';
+import dynamic from 'next/dynamic';
+import {previewKey} from '../lib/search-options.mjs';
+const Map=dynamic(()=>import('./prospect-map'),{ssr:false});
+export default function SearchPreview({keyword,location,locationChosen,data,action,busy}){
+const key=previewKey(keyword,location);const preview=data.previews?.find(p=>p.key===key);const job=data.jobs.find(j=>j.type==='preview'&&j.body.key===key);const [selected,setSelected]=useState(null);
+// Start once the location is selected and the keyword settles; the server reuses queued/completed previews.
+useEffect(()=>{if(!locationChosen||keyword.trim().length<3||preview||job)return;const timer=setTimeout(()=>action({action:'preview',keyword,location}),1800);return()=>clearTimeout(timer);},[key,locationChosen,!!preview,!!job]);
+const selectedLead=preview?.leads.find(l=>l.id===selected);return <section className="preview-panel"><div className="row wrap"><h3>Google Maps search preview</h3><button type="button" className="button" disabled={busy||!keyword.trim()||!location.trim()||['queued','running'].includes(job?.status)} onClick={()=>action({action:'preview',keyword,location,refresh:true})}>{['queued','running'].includes(job?.status)?'Finding map results…':'Preview map results'}</button></div><p className="muted">{preview?`${preview.leads.length} businesses discovered · ${new Date(preview.createdAt).toLocaleString()}`:job?`Preview ${job.status}. ${job.error||'Results appear when the laptop worker finishes.'}`:'Choose a location to preview matching businesses, or click Preview for a typed location.'}</p><Map caption={preview?`${preview.leads.filter(l=>l.lat!==null&&l.lng!==null).length} map pins · Click a pin for business details.`:"Map pins will appear after the preview search completes."} leads={preview?.leads||[]} geo={{lat:'',lng:'',radius:50}} onCenter={()=>{}} onSelect={setSelected}/>{selectedLead&&<p><strong>{selectedLead.name}</strong> · {selectedLead.address} · {selectedLead.rating} stars ({selectedLead.reviews} reviews) {selectedLead.mapsUrl&&<a href={selectedLead.mapsUrl} target="_blank" rel="noreferrer">View Google Maps</a>}</p>}<small>This is a sampled live search, not Google’s total business count. Previewing does not save prospects or run website research. Map tiles © OpenStreetMap.</small></section>;}
+
