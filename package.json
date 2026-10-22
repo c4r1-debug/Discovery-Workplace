@@ -1,0 +1,30 @@
+{
+  "name": "discovery",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "worker": "node scripts/worker.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "chrome-launcher": "^1.0.0",
+    "csv-parse": "^5.6.0",
+    "docx": "^9.7.1",
+    "ipaddr.js": "^2.2.0",
+    "leaflet": "^1.9.4",
+    "libphonenumber-js": "^1.13.14",
+    "lighthouse": "^12.0.0",
+    "lucide-react": "^0.468.0",
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

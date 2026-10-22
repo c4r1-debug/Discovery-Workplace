@@ -1,0 +1,28 @@
+node_modules/
+.next/
+data/
+.env*
+!.env.example
+*.log
+tools/*.exe
+
+# Local databases and encryption keys, including archived test runs
+*.sqlite
+*.sqlite-*
+secret.key
+*.db
+*.db-*
+*.pem
+*.key
+*.p12
+*.pfx
+*.pkcs12
+id_rsa
+id_ed25519
+
+# Local audit snapshots and exported prospect data
+/archive/
+/exports/
+
+# Machine-specific Windows shortcuts
+*.lnk
