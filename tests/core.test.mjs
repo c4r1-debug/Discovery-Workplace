@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+process.env.DISCOVERY_DATA_DIR=mkdtempSync(path.join(tmpdir(),'discovery-test-'));
+ const {importLeads,patchLead,webUrl,email,normalize}=await import('../lib/leads.mjs');
+const {prospectsCSV}=await import('../lib/export.mjs');
+const {list,put,secret,saveSecret,enqueue}=await import('../lib/db.mjs');
+test('structured Gosom addresses persist and GoHighLevel CSV can be imported back into Discovery',()=>{
+ const complete={street:'123 Example St',city:'Hoboken',state:'New Jersey',postal_code:'07030',country:'US'};
+ assert.equal(normalize({title:'Gosom Practice',owner:JSON.stringify({name:'Practice (Owner)',link:'https://www.google.com/maps/contrib/example'})}).owner,'');
+ assert.deepEqual(importLeads(JSON.stringify([{name:'Address Roundtrip',address:'123 Example St, Hoboken, NJ 07030, United States',phone:'+1 202 555 0143',email:'office@example.com',complete_address:JSON.stringify(complete)}])),{added:1,duplicates:0});
+ const saved=list('lead').find(l=>l.name==='Address Roundtrip');assert.equal(saved.city,'Hoboken');assert.equal(saved.postalCode,'07030');assert.equal(saved.country,'US');
+ assert.deepEqual(importLeads(prospectsCSV([saved])),{added:0,duplicates:1});
+ const csv='Business Name,Name,Email,Phone,Address,City,State,Postal Code,Country,Website\nGHL Example,Pat Example,hello@example.com,+12025550143,10 Example St,Hoboken,NJ,07030,US,https://example.com';
+ assert.equal(importLeads(csv).added,1);const imported=list('lead')[0];assert.equal(imported.owner,'Pat Example');assert.equal(imported.phone,'+12025550143');assert.equal(imported.email,'hello@example.com');assert.equal(imported.streetAddress,'10 Example St');assert.equal(imported.postalCode,'07030');
+});
+test('image asset names are not contact emails',()=>{assert.equal(email('Practice_Logo@2x.webp'),'');assert.equal(email('info@example.com'),'info@example.com');});
+const {setupNeeded,login,userFrom,passwordHash,verify}=await import('../lib/auth.mjs');
+const {register,resetPassword,renewRecovery,roleFor}=await import('../lib/accounts.mjs');
+const {publicIP,resolvePublic}=await import('../lib/network.mjs');
+const {sendClickup}=await import('../lib/integrations.mjs');
+test('registration, roles, case-insensitive login and one-use recovery',()=>{
+  assert.equal(setupNeeded(),true);const account=register('owner','test-owner-password-123');register('researcher','test-member-password-456');assert.equal(setupNeeded(),false);
+  assert.equal(roleFor('owner'),'admin');assert.equal(roleFor('researcher'),'member');assert.throws(()=>register('OWNER','long-password-123'));
+  const token=login('OWNER','test-owner-password-123');const request={cookies:{get:()=>({value:token})}};assert.equal(userFrom(request),'owner');
+  assert.throws(()=>resetPassword('owner','wrong','new-password-123'));assert.throws(()=>resetPassword('missing',account.recoveryCode,'new-password-123'));
+  const next=resetPassword('owner',account.recoveryCode,'new-password-123');assert.equal(userFrom(request),null);assert.throws(()=>login('owner','test-owner-password-123'));assert.ok(login('owner','new-password-123'));
+  assert.throws(()=>resetPassword('owner',account.recoveryCode,'third-password-123'));assert.throws(()=>renewRecovery('owner','wrong'));const renewed=renewRecovery('owner','new-password-123');assert.throws(()=>resetPassword('owner',next.recoveryCode,'third-password-123'));assert.ok(resetPassword('owner',renewed.recoveryCode,'third-password-123').recoveryCode);
+  assert.equal(verify('nope',passwordHash('long-password-123')),false);
+});
+test('Gosom CSV import preserves published email and deduplicates',()=>{const csv='title,address,website,emails,place_id\nExample Dental,One Street,https://example.com,hello@example.com,abc\nExample Dental,One Street,https://example.com,hello@example.com,abc';assert.deepEqual(importLeads(csv),{added:1,duplicates:1});assert.equal(list('lead')[0].email,'hello@example.com');assert.equal(list('lead')[0].owner,'');assert.equal(list('lead')[0].status,'Ready for review');});
+test('missing contacts retained; duplicate import cannot reset opt-out',()=>{importLeads('title,address\nOther Dental,Two Street');const l=list('lead')[0];assert.equal(l.status,'Missing contact');patchLead(l.id,{status:'Do not contact'});importLeads('title,address\nOther Dental,Two Street');assert.equal(list('lead').find(x=>x.id===l.id).status,'Do not contact');});
+test('blocks unsafe URLs and nonpublic IPv4/IPv6 addresses',async()=>{for(const ip of ['127.0.0.1','10.2.3.4','192.168.1.1','169.254.169.254','::1','::ffff:127.0.0.1','fc00::1'])assert.equal(publicIP(ip),false,ip);assert.equal(publicIP('8.8.8.8'),true);assert.equal(webUrl('javascript:alert(1)'),'');await assert.rejects(resolvePublic('http://127.0.0.1'));await assert.rejects(resolvePublic('file:///etc/passwd'));});
+test('API secrets round-trip encrypted at rest',()=>{saveSecret('ai','test-not-real');assert.equal(secret('ai'),'test-not-real');saveSecret('ai','');assert.equal(secret('ai'),'');});
+test('duplicate active research jobs rejected',()=>{enqueue('research',{leadId:'a'});assert.throws(()=>enqueue('research',{leadId:'a'}));});
+test('ClickUp requires interest before any remote call',async()=>{const l=list('lead')[0];await assert.rejects(sendClickup(l.id),/Interested/);l.clickupId='existing';put('lead',l);assert.equal((await sendClickup(l.id)).clickupId,'existing');});

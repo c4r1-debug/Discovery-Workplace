@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parse} from 'csv-parse/sync';
+import {prospectsCSV,csvCell} from '../lib/export.mjs';
+import {addressFields,phoneForImport} from '../lib/contact-format.mjs';
+import {serviceOpportunity} from '../lib/opportunity.mjs';
+import {batchLimit,previewKey} from '../lib/search-options.mjs';
+import {findLocations} from '../lib/locations.mjs';
+test('CSV preserves nested Maps data, quotes and multiline notes without formulas',()=>{const csv=prospectsCSV([{id:'1',name:'=HYPERLINK("bad")',notes:'a,b\nsecond line',mapsData:{about:['Parking']},phone:'+12345'}]);const [row]=parse(csv,{columns:true,bom:true});assert.equal(row['Business Name'],"'=HYPERLINK(\"bad\")");assert.equal(row.notes,'a,b\nsecond line');assert.deepEqual(JSON.parse(row.mapsData),{about:['Parking']});assert.equal(row['Original Phone'],"'+12345");assert.equal(row.Phone,'');assert.match(row['Phone Review'],/Check/);assert.equal(csvCell('+SUM(1,2)',true),'"\'+SUM(1,2)"');});
+test('GoHighLevel export separates address, preserves postal zeroes, validates international phones and explains opportunity',()=>{
+ const lead={id:'one',name:'Example Practice',owner:'Pat Example',website:'https://example.com',phone:'(202) 555-0143 ext. 123',address:'123 Example St Penthouse, Hoboken, NJ 07030, United States',score:57,findings:[{id:'booking',title:'Booking action',status:'review'}],complete_address:JSON.stringify({street:'123 Example St Penthouse',city:'Hoboken',state:'New Jersey',postal_code:'07030',country:'US'})};
+ const [row]=parse(prospectsCSV([lead]),{columns:true,bom:true});
+ assert.equal(row.Address,'123 Example St Penthouse');assert.equal(row.City,'Hoboken');assert.equal(row.State,'New Jersey');assert.equal(row['Postal Code'],'07030');assert.equal(row.Country,'US');assert.equal(row.Phone,'+12025550143');assert.equal(row['Phone Extension'],'123');assert.equal(row['Opportunity Level'],'High');assert.match(row['Suggested Service'],/CRM/);assert.equal(row.Name,'Pat Example');
+ assert.equal(phoneForImport('020 7946 0018','GB').phone,'+442079460018');assert.equal(phoneForImport('0917 123 4567','PH').phone,'+639171234567');assert.equal(phoneForImport('0044 20 7946 0018','').phone,'+442079460018');assert.equal(phoneForImport('2025550143','').phone,'');assert.equal(phoneForImport('+12025550143,+12025550144','US').phone,'');assert.equal(phoneForImport('+1+2','US').phone,'');
+ assert.equal(addressFields({address:lead.address}).postalCode,'07030');assert.equal(addressFields({complete_address:'not json',address:'Unknown'}).city,'');assert.equal(addressFields({country:'USA'}).country,'US');
+ const cityOnly=addressFields({address:'Philadelphia, PA 19148, United States'});assert.equal(cityOnly.city,'Philadelphia');assert.equal(cityOnly.postalCode,'19148');assert.equal(cityOnly.streetAddress,'');
+ const [compact]=parse(prospectsCSV([{...lead,mapsData:{reviews:['large review']}}],[{leadId:lead.id,screenshot:'large screenshot'}],'gohighlevel'),{columns:true,bom:true});assert.equal(compact.Phone,'+12025550143');assert.equal('mapsData' in compact,false);assert.equal('reports' in compact,false);assert.equal(compact['Opportunity Level'],'High');
+ for(const [score,expected] of [[0,'Low'],[24,'Low'],[25,'Mid'],[49,'Mid'],[50,'High'],[100,'High'],[null,'Not assessed']])assert.equal(serviceOpportunity({...lead,score}).level,expected);
+ assert.equal(serviceOpportunity({...lead,websiteBlocked:{}}).level,'Not assessed');assert.equal(serviceOpportunity({...lead,website:''}).level,'High');assert.equal(serviceOpportunity({...lead,status:'Do not contact'}).level,'Not assessed');assert.equal(serviceOpportunity({...lead,hot:true,score:null}).level,'Not assessed');
+ assert.equal(parse(prospectsCSV([{...lead,score:null}]),{columns:true,bom:true})[0]['Opportunity Level'],'');assert.match(prospectsCSV([]),/"Postal Code"/);
+});
+test('blank is unlimited and invalid limits are rejected',()=>{assert.equal(batchLimit(''),null);assert.equal(batchLimit(null),null);assert.equal(batchLimit('1200'),1200);for(const value of [0,-1,1.5,'abc'])assert.throws(()=>batchLimit(value));assert.equal(previewKey(' Dentist ','New   Jersey'),'dentist|new jersey');});
+test('local suggestions cover cities, regions and countries',()=>{assert.ok(findLocations('New Jersey').some(l=>l.type==='Region'&&l.label.includes('United States')));assert.ok(findLocations('Manila').some(l=>l.type==='City'));assert.ok(findLocations('Philippines').some(l=>l.type==='Country'));assert.deepEqual(findLocations('a'),[]);});

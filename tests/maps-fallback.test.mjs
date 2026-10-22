@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+process.env.DISCOVERY_DATA_DIR=mkdtempSync(path.join(tmpdir(),'discovery-maps-'));
+const {default:db,put,get,enqueue,jobs}=await import('../lib/db.mjs');
+const {stopWebsiteWork,websiteBlocked,compactJobs,mapsDetails,isAccessBlocked}=await import('../lib/maps-fallback.mjs');
+test('blocked host cancels queued work, keeps Maps details and collapses repeated failures',()=>{
+put('lead',{id:'a',website:'https://example.com',name:'Practice',mapsData:{about:'Parking'},score:80});
+put('lead',{id:'b',website:'https://www.example.com/location'});
+enqueue('audit',{leadId:'a'});enqueue('research',{leadId:'b'});
+stopWebsiteWork('a','Website returned HTTP 403');
+assert.equal(websiteBlocked(get('b')),true);assert.equal(get('a').score,null);assert.equal(get('a').mapsData.about,'Parking');assert.ok(jobs().every(j=>j.status==='skipped'));
+const repeated=[1,2,3].map(id=>({id,type:'audit',status:'failed',body:{leadId:'a'},error:'Website returned HTTP 403'}));assert.equal(compactJobs(repeated).length,1);assert.equal(compactJobs(repeated)[0].status,'skipped');
+assert.equal(isAccessBlocked('Website returned HTTP 500'),false);
+assert.deepEqual(mapsDetails({about:'{"Parking":true}',user_reviews:'[]'}),{about:{Parking:true},user_reviews:[]});
+});
+test('blocked website lookup uses its index, includes legacy flags, and reflects changes',()=>{
+ put('lead',{id:'lookup',website:'https://lookup.example',websiteBlocked:{host:'lookup.example'}});
+ assert.equal(websiteBlocked({website:'https://www.lookup.example/contact'}),true);
+ assert.equal(websiteBlocked({website:'https://unblocked.example'}),false);
+ assert.equal(websiteBlocked({website:''}),false);
+ put('lead',{id:'legacy',website:'https://legacy.example',websiteBlocked:{reason:'Old blocked flag'}});
+ assert.equal(websiteBlocked({website:'https://www.legacy.example'}),true);
+ put('lead',{id:'not-blocked',website:'https://false-flag.example',websiteBlocked:false});
+ assert.equal(websiteBlocked({website:'https://false-flag.example'}),false);
+ const plan=db.prepare("EXPLAIN QUERY PLAN SELECT 1 FROM records WHERE kind='lead' AND json_extract(body,'$.websiteBlocked') IS NOT NULL AND json_extract(body,'$.websiteBlocked.host')=? LIMIT 1").all('lookup.example');
+ assert.ok(plan.some(row=>row.detail.includes('blocked_website_host')));
+ put('lead',{id:'lookup',website:'https://lookup.example'});
+ assert.equal(websiteBlocked({website:'https://lookup.example'}),false);
+});
