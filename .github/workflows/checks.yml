@@ -20,15 +20,14 @@ jobs:
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: false
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'false'
 
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      NEXT_TELEMETRY_DISABLED: 1
-      DISCOVERY_DATA_DIR: ${{ runner.temp }}/discovery-build
+      NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -44,3 +43,5 @@ jobs:
       - run: pnpm audit --audit-level=high
       - run: pnpm test
       - run: pnpm build
+        env:
+          DISCOVERY_DATA_DIR: ${{ runner.temp }}/discovery-build
